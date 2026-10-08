@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0b1220">
+    <meta name="description" content="FindBack — a school lost and found board for students and staff.">
+    <link rel="icon" type="image/png" href="./assets/findback-logo.png">
+    <title>FindBack — School Lost &amp; Found</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+    <main class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="#home" aria-label="FindBack school lost and found">
+          <img class="brand-logo" src="./assets/findback-logo.png" alt="FindBack logo">
+          <span><strong>FindBack</strong><small>School Lost &amp; Found</small></span>
+        </a>
+        <div id="account-chip" class="account-chip hidden"></div>
+      </header>
+
+      <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+      <section id="auth-shell" class="auth-layout">
+        <div class="welcome-panel">
+          <span class="eyebrow"><span class="pulse-dot"></span> SCHOOL LOST &amp; FOUND</span>
+          <h1>Lost something?<br><span>Let’s bring it home.</span></h1>
+          <p>A shared place for students and staff to report found items, check new listings, and get belongings back safely.</p>
+          <div class="welcome-steps">
+            <div><span>01</span><p>Report an item<br><small>Add a photo and where it was found.</small></p></div>
+            <div><span>02</span><p>Verify the owner<br><small>Invigilators can ask private questions.</small></p></div>
+            <div><span>03</span><p>Return it<br><small>Staff confirm when it is safely returned.</small></p></div>
+          </div>
+          <div class="privacy-note"><span aria-hidden="true">✦</span> Only signed-in school community members can view this board.</div>
+        </div>
+
+        <div class="auth-card">
+          <div class="auth-heading">
+            <span class="mini-icon" aria-hidden="true">↗</span>
+            <div><h2 id="auth-title">Welcome back</h2><p id="auth-subtitle">Sign in to your school account</p></div>
+          </div>
+          <div class="auth-toggle" role="tablist" aria-label="Account action">
+            <button id="login-mode" class="mode-button selected" type="button">Sign in</button>
+            <button id="signup-mode" class="mode-button" type="button">Create account</button>
+          </div>
+          <form id="auth-form" class="form-stack">
+            <label id="name-field" class="hidden">Your name
+              <input id="auth-name" name="name" type="text" maxlength="80" autocomplete="name" placeholder="e.g. Aanya Sharma">
+            </label>
+            <label>Email address
+              <input id="auth-email" name="email" type="email" required autocomplete="email" placeholder="you@school.edu">
+            </label>
+            <label>Password
+              <input id="auth-password" name="password" type="password" required minlength="8" autocomplete="current-password" placeholder="At least 8 characters">
+            </label>
+            <button id="auth-submit" class="button button-primary full-width" type="submit">Sign in <span aria-hidden="true">→</span></button>
+          </form>
+          <p id="auth-help" class="form-hint">New accounts start as members. A school head assigns invigilator access.</p>
+          <p id="setup-warning" class="setup-warning hidden">Add your Supabase project URL and publishable key to config.js to connect this site.</p>
+        </div>
+      </section>
+
+      <section id="app-shell" class="app-shell hidden">
+        <div class="app-heading">
+          <div><span class="eyebrow"><span class="pulse-dot"></span> FINDBACK · SCHOOL LOST &amp; FOUND</span><h1>Find it. <span>Claim it.</span> Return it.</h1></div>
+          <button id="report-open" class="button button-primary"><span aria-hidden="true">＋</span> Report an item</button>
+        </div>
+        <nav id="view-tabs" class="view-tabs" aria-label="Main navigation">
+          <button class="view-tab active" data-view="browse" type="button">Browse items</button>
+          <button class="view-tab" data-view="claims" type="button">My claims <span id="my-claim-count" class="tab-count">0</span></button>
+          <button id="staff-tab" class="view-tab hidden" data-view="staff" type="button">Invigilator review</button>
+          <button id="head-tab" class="view-tab hidden" data-view="team" type="button">Manage team</button>
+          <span class="nav-spacer"></span>
+          <button id="signout-button" class="button button-quiet" type="button">Sign out</button>
+        </nav>
+
+        <section id="browse-view" class="content-view">
+          <div class="board-toolbar">
+            <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="Search item, location or Lost-ID" aria-label="Search items"><kbd>⌘ K</kbd></label>
+            <div class="filter-row" role="group" aria-label="Filter by item type">
+              <button class="filter-chip active" data-kind="all" type="button">All items</button>
+              <button class="filter-chip" data-kind="found" type="button">Found</button>
+              <button class="filter-chip" data-kind="lost" type="button">Lost</button>
+            </div>
+            <select id="category-filter" class="category-select" aria-label="Filter by category">
+              <option value="all">All categories</option><option>Bags</option><option>Books</option><option>Clothing</option><option>Electronics</option><option>Other</option>
+            </select>
+          </div>
+          <div id="items-summary" class="section-caption"></div>
+          <div id="items-grid" class="items-grid"></div>
+          <div id="items-empty" class="empty-state hidden"><span class="empty-orbit" aria-hidden="true">✦</span><h2>No items match yet</h2><p>Try another search, or report an item to get the board started.</p><button class="button button-secondary" data-open-report type="button">Report an item</button></div>
+        </section>
+
+        <section id="claims-view" class="content-view hidden">
+          <div class="section-title"><div><span class="eyebrow">YOUR ACTIVITY</span><h2>My claims</h2></div><p>Ownership questions from invigilators appear here.</p></div>
+          <div id="my-claims-list" class="stack-list"></div>
+        </section>
+
+        <section id="staff-view" class="content-view hidden">
+          <div class="section-title"><div><span class="eyebrow">INVIGILATOR DESK</span><h2>Claim review</h2></div><p>Ask private item-specific questions, review replies, and decide when ownership is clear.</p></div>
+          <div id="staff-claims-list" class="stack-list"></div>
+        </section>
+
+        <section id="team-view" class="content-view hidden">
+          <div class="section-title"><div><span class="eyebrow">HEAD ACCESS</span><h2>Manage invigilators</h2></div><p>Grant or remove invigilator access for existing accounts. Heads are assigned by the project owner.</p></div>
+          <div id="team-list" class="team-list"></div>
+        </section>
+      </section>
+
+      <footer class="site-footer"><span>FINDBACK · A safer way to reunite lost things</span><span>Find it. Claim it. Return it.</span></footer>
+    </main>
+
+    <dialog id="report-dialog" class="modal">
+      <form id="report-form" class="modal-card">
+        <div class="modal-top"><div><span class="eyebrow">ADD TO THE BOARD</span><h2>Report an item</h2></div><button class="icon-button" type="button" data-close="report-dialog" aria-label="Close">×</button></div>
+        <p class="modal-intro">Keep your description helpful, but leave one or two identifying details for the ownership check.</p>
+        <div class="form-grid">
+          <label>Report type<select id="report-kind" required><option value="found">I found this item</option><option value="lost">I lost this item</option></select></label>
+          <label>Category<select id="report-category" required><option>Bags</option><option>Books</option><option>Clothing</option><option>Electronics</option><option>Other</option></select></label>
+          <label class="wide-field">Item name<input id="report-title" required maxlength="80" placeholder="e.g. Blue backpack"></label>
+          <label class="wide-field">Where was it found or last seen?<input id="report-location" required maxlength="100" placeholder="e.g. Library, ground floor"></label>
+          <label class="wide-field">Description<textarea id="report-description" maxlength="500" rows="3" placeholder="A general description. Avoid names, student IDs, or exact ownership clues."></textarea></label>
+          <label class="wide-field">Photo (optional, JPG/PNG/WebP, up to 3 MB)<input id="report-photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+        </div>
+        <div class="modal-actions"><button class="button button-quiet" type="button" data-close="report-dialog">Cancel</button><button class="button button-primary" type="submit">Post item <span aria-hidden="true">→</span></button></div>
+      </form>
+    </dialog>
+
+    <dialog id="claim-dialog" class="modal">
+      <form id="claim-form" class="modal-card">
+        <div class="modal-top"><div><span class="eyebrow">OWNERSHIP REQUEST</span><h2>Claim this item</h2></div><button class="icon-button" type="button" data-close="claim-dialog" aria-label="Close">×</button></div>
+        <p id="claim-item-label" class="claim-item-label"></p>
+        <label>Tell the invigilators a detail that helps identify it<textarea id="claim-message" required maxlength="500" rows="4" placeholder="For example: a mark, a detail inside, or something not shown in the listing."></textarea></label>
+        <p class="form-hint">This message is only visible to invigilators and you. Do not include passwords or sensitive personal details.</p>
+        <input id="claim-item-id" type="hidden">
+        <div class="modal-actions"><button class="button button-quiet" type="button" data-close="claim-dialog">Cancel</button><button class="button button-primary" type="submit">Send claim <span aria-hidden="true">→</span></button></div>
+      </form>
+    </dialog>
+
+    <dialog id="verification-dialog" class="modal">
+      <form id="verification-form" class="modal-card">
+        <div class="modal-top"><div><span class="eyebrow">PRIVATE OWNERSHIP CHECK</span><h2>Ask the claimant</h2></div><button class="icon-button" type="button" data-close="verification-dialog" aria-label="Close">×</button></div>
+        <p id="verification-item-label" class="claim-item-label"></p>
+        <label>Write your questions<textarea id="verification-question" required maxlength="1000" rows="5" placeholder="Ask about a detail that is not visible in the listing, such as a hidden mark or an item inside. One or more questions are okay."></textarea></label>
+        <p class="form-hint">Keep the questions private. Do not ask for passwords, student ID numbers, or sensitive personal information.</p>
+        <input id="verification-claim-id" type="hidden">
+        <div class="modal-actions"><button class="button button-quiet" type="button" data-close="verification-dialog">Cancel</button><button class="button button-primary" type="submit">Send questions <span aria-hidden="true">→</span></button></div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
