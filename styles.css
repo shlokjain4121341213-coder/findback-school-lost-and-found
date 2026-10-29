@@ -34,7 +34,7 @@ button { color: inherit; }
 .page-shell { width: min(1180px, calc(100% - 48px)); margin: 0 auto; }
 .topbar { min-height: 86px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(160, 188, 222, .08); }
 .brand { display: flex; gap: 12px; align-items: center; color: var(--text); text-decoration: none; }
-.brand-logo { display: block; width: 52px; height: 52px; border: 1px solid rgba(84, 224, 208, .26); border-radius: 15px; object-fit: contain; background: transparent; box-shadow: 0 0 22px rgba(84, 224, 208, .12); }
+.school-logo { display: block; width: 48px; height: 48px; padding: 3px; border: 1px solid rgba(84, 224, 208, .34); border-radius: 13px; object-fit: contain; background: #fff; box-shadow: 0 0 18px rgba(84, 224, 208, .09); }
 .brand strong { display: block; letter-spacing: -.04em; font: 800 16px Manrope, sans-serif; }
 .brand small { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
 .account-chip { padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; color: #c1d0e2; background: rgba(20, 33, 53, .8); font-size: 12px; }
@@ -153,6 +153,9 @@ select option { color: var(--text); background: #17263c; }
 .role-chip.invigilator { border-color: rgba(84, 224, 208, .25); color: var(--teal); background: rgba(84, 224, 208, .07); }
 .role-chip.head { border-color: rgba(126, 167, 255, .3); color: #a8c1ff; background: rgba(126, 167, 255, .08); }
 .site-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 21px 0 28px; color: #71859d; font-size: 9px; letter-spacing: .04em; }
+.society-attribution { display: inline-flex; align-items: center; gap: 8px; color: #98abc0; }
+.society-caption { color: #667b93; }
+.society-logo { width: 34px; height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 7px; object-fit: contain; background: #fff; }
 .modal { width: min(600px, calc(100% - 28px)); max-height: min(90vh, 850px); padding: 0; overflow: auto; border: 1px solid var(--line-strong); border-radius: 20px; color: var(--text); background: #101c2d; box-shadow: 0 30px 100px rgba(0, 0, 0, .65); }
 .modal::backdrop { background: rgba(2, 7, 15, .76); backdrop-filter: blur(5px); }
 .modal-card { padding: clamp(21px, 5vw, 31px); }
@@ -211,6 +214,7 @@ select option { color: var(--text); background: #17263c; }
   .claim-row, .team-row { grid-template-columns: 1fr; }
   .claim-actions { justify-content: flex-start; }
   .site-footer { align-items: flex-start; flex-direction: column; gap: 9px; }
+  .society-attribution { font-size: 8px; }
   .form-grid { grid-template-columns: 1fr; }
   .wide-field { grid-column: auto; }
 }
