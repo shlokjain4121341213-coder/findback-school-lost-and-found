@@ -167,6 +167,8 @@ function renderItems() {
   const ownByItem = new Map((state.myClaims || []).map((claim) => [claim.item_id, claim]));
   const query = state.search.trim().toLowerCase();
   const filtered = state.items.filter((item) => {
+    // Keep archived and returned listings off the active board.
+    if (item.status === 'closed' || item.status === 'returned') return false;
     const matchesKind = state.kindFilter === 'all' || item.kind === state.kindFilter;
     const matchesCategory = state.categoryFilter === 'all' || item.category === state.categoryFilter;
     const searchable = [item.title, item.code, item.category, item.location, item.description].join(' ').toLowerCase();
@@ -187,6 +189,9 @@ function renderItems() {
     }
     if (state.profile && ['invigilator', 'head'].includes(state.profile.role) && item.status === 'claimed') {
       action += '<button class="button button-secondary button-small" data-action="returned" data-id="' + escapeHtml(item.id) + '" type="button">Mark returned</button>';
+    }
+    if (state.profile && ['invigilator', 'head'].includes(state.profile.role) && item.status === 'open') {
+      action += '<button class="button button-quiet button-small" data-action="archive" data-id="' + escapeHtml(item.id) + '" type="button">Archive</button>';
     }
     const photo = item.photo_url
       ? '<img src="' + escapeHtml(item.photo_url) + '" alt="Photo of ' + escapeHtml(item.title) + '" loading="lazy">'
@@ -513,6 +518,18 @@ async function markItemReturned(itemId) {
   }
 }
 
+async function archiveItem(itemId) {
+  if (!window.confirm('Archive this listing and hide it from the active board? The record will be kept.')) return;
+  try {
+    const { error } = await supabase.from('items').update({ status: 'closed' }).eq('id', itemId);
+    if (error) throw error;
+    showToast('Item archived and hidden from the board.');
+    await loadItems();
+  } catch (error) {
+    showToast(userFacingError(error), true);
+  }
+}
+
 async function changeMemberRole(personId, role) {
   const message = role === 'invigilator' ? 'grant this member invigilator access' : 'remove this member’s invigilator access';
   if (!window.confirm('Are you sure you want to ' + message + '?')) return;
@@ -565,6 +582,7 @@ function bindEvents() {
     if (!button) return;
     if (button.dataset.action === 'claim') startClaim(button.dataset.id);
     if (button.dataset.action === 'returned') markItemReturned(button.dataset.id);
+    if (button.dataset.action === 'archive') archiveItem(button.dataset.id);
   });
   $('#my-claims-list').addEventListener('submit', (event) => {
     if (event.target.matches('.answer-form')) submitVerificationAnswer(event);
