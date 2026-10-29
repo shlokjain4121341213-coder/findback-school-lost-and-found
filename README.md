@@ -1,8 +1,8 @@
-# FindBack — School Lost & Found
+# Foundry — School Lost & Found
 
-A dark, mobile-friendly lost and found board for school communities. It uses Supabase for sign-in, the shared database, and private photo storage. Members sign in before they can see listings or images.
+A dark, mobile-friendly lost and found board branded for Delhi Public School Indirapuram. It uses Supabase for sign-in, the shared database, and private photo storage. School members sign in before they can see listings or images.
 
-The custom FindBack logo is included in `assets/findback-logo.png`.
+The school crest and Society logo load from the [DPS Society’s official school directory](https://dpsfamily.org/assets/img/dps-schools/DPS-indirapuram.jpg) and [official Society logo directory](https://dpsfamily.org/assets/img/logo/logo2.png), so an internet connection is needed to display them.
 
 ## What the site does
 
