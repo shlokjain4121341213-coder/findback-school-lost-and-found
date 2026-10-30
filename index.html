@@ -40,23 +40,16 @@
             <span class="mini-icon" aria-hidden="true">↗</span>
             <div><h2 id="auth-title">Welcome back</h2><p id="auth-subtitle">Sign in to your school account</p></div>
           </div>
-          <div class="auth-toggle" role="tablist" aria-label="Account action">
-            <button id="login-mode" class="mode-button selected" type="button">Sign in</button>
-            <button id="signup-mode" class="mode-button" type="button">Create account</button>
-          </div>
           <form id="auth-form" class="form-stack">
-            <label id="name-field" class="hidden">Your name
-              <input id="auth-name" name="name" type="text" maxlength="80" autocomplete="name" placeholder="e.g. Aanya Sharma">
-            </label>
-            <label>Email address
-              <input id="auth-email" name="email" type="email" required autocomplete="email" placeholder="you@school.edu">
+            <label>Student school ID
+              <input id="auth-identifier" name="identifier" type="text" required autocomplete="username" placeholder="Enter your school ID">
             </label>
             <label>Password
               <input id="auth-password" name="password" type="password" required minlength="8" autocomplete="current-password" placeholder="At least 8 characters">
             </label>
             <button id="auth-submit" class="button button-primary full-width" type="submit">Sign in <span aria-hidden="true">→</span></button>
           </form>
-          <p id="auth-help" class="form-hint">New accounts start as members. A school head assigns invigilator access.</p>
+          <p id="auth-help" class="form-hint">Students use their school ID and password. The school head can sign in with the existing admin email account.</p>
           <p id="setup-warning" class="setup-warning hidden">Add your Supabase project URL and publishable key to config.js to connect this site.</p>
         </div>
       </section>
@@ -70,7 +63,8 @@
           <button class="view-tab active" data-view="browse" type="button">Browse items</button>
           <button class="view-tab" data-view="claims" type="button">My claims <span id="my-claim-count" class="tab-count">0</span></button>
           <button id="staff-tab" class="view-tab hidden" data-view="staff" type="button">Invigilator review</button>
-          <button id="head-tab" class="view-tab hidden" data-view="team" type="button">Manage team</button>
+          <button id="head-tab" class="view-tab hidden" data-view="team" type="button">Manage accounts</button>
+          <button class="view-tab" data-view="settings" type="button">Settings</button>
           <span class="nav-spacer"></span>
           <button id="signout-button" class="button button-quiet" type="button">Sign out</button>
         </nav>
@@ -103,12 +97,71 @@
         </section>
 
         <section id="team-view" class="content-view hidden">
-          <div class="section-title"><div><span class="eyebrow">HEAD ACCESS</span><h2>Manage invigilators</h2></div><p>Grant or remove invigilator access for existing accounts. Heads are assigned by the project owner.</p></div>
+          <div class="section-title"><div><span class="eyebrow">SCHOOL HEAD</span><h2>Manage accounts</h2></div><p>Create up to 10 student accounts using school IDs and passwords. You can also grant or remove invigilator access.</p></div>
+          <div class="account-create-card">
+            <div class="account-create-heading"><div><h3>Create student accounts</h3><p id="student-account-count">0 of 10 test accounts created</p></div><span class="account-create-badge">HEAD ONLY</span></div>
+            <form id="student-account-form" class="form-grid account-create-form">
+              <label class="wide-field">Student school IDs
+                <textarea id="student-ids-input" name="student_ids" rows="5" required autocomplete="off" placeholder="Enter one school ID per line, or separate IDs with commas"></textarea>
+              </label>
+              <label class="wide-field">Shared starting password
+                <input id="student-password-input" name="password" type="password" minlength="8" required autocomplete="new-password" placeholder="Enter the pilot password">
+              </label>
+              <div class="wide-field account-create-actions"><p class="form-hint">Only use this shared password for the pilot. Students should change it in Settings after signing in.</p><button id="student-account-submit" class="button button-primary" type="submit">Create accounts <span aria-hidden="true">→</span></button></div>
+            </form>
+          </div>
           <div id="team-list" class="team-list"></div>
+        </section>
+
+        <section id="settings-view" class="content-view hidden">
+          <div class="section-title"><div><span class="eyebrow">YOUR PREFERENCES</span><h2>Settings</h2></div><p>Choose how FindBack looks on this device.</p></div>
+          <div class="settings-grid">
+            <section class="settings-card">
+              <span class="eyebrow">APPEARANCE</span>
+              <h3>Make it yours</h3>
+              <label>Color mode
+                <select id="theme-mode">
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                </select>
+              </label>
+              <label>Accent color
+                <select id="theme-accent">
+                  <option value="teal">Teal</option>
+                  <option value="orange">Orange</option>
+                  <option value="blue">Blue</option>
+                  <option value="violet">Violet</option>
+                </select>
+              </label>
+              <p class="form-hint">Your choices are saved on this device.</p>
+            </section>
+            <section class="settings-card settings-about">
+              <span class="eyebrow">ABOUT FINDBACK</span>
+              <h3>Delhi Public School Indirapuram</h3>
+              <p>A school lost-and-found board to help return belongings to their owners.</p>
+              <p class="build-credit">Build lead <strong>Shlok Jain</strong></p>
+            </section>
+            <section class="settings-card">
+              <span class="eyebrow">ACCOUNT SECURITY</span>
+              <h3>Change password</h3>
+              <form id="password-change-form" class="form-stack">
+                <label>Current password
+                  <input id="current-password" type="password" required minlength="8" autocomplete="current-password">
+                </label>
+                <label>New password
+                  <input id="new-password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+                </label>
+                <label>Confirm new password
+                  <input id="confirm-password" type="password" required minlength="8" autocomplete="new-password">
+                </label>
+                <button id="password-change-submit" class="button button-secondary" type="submit">Update password</button>
+              </form>
+            </section>
+          </div>
         </section>
       </section>
 
-      <footer class="site-footer"><span>DPS INDIRAPURAM · A safer way to reunite lost things</span><span class="society-attribution"><span class="society-caption">Under the aegis of</span><img class="society-logo" src="https://dpsfamily.org/assets/img/logo/logo2.png" alt="The Delhi Public School Society logo"><span>The Delhi Public School Society</span></span></footer>
+      <footer class="site-footer"><span>DPS INDIRAPURAM · A safer way to reunite lost things</span><span class="build-lead-footer">Build lead — Shlok Jain</span><span class="society-attribution"><span class="society-caption">Under the aegis of</span><img class="society-logo" src="https://dpsfamily.org/assets/img/logo/logo2.png" alt="The Delhi Public School Society logo"><span>The Delhi Public School Society</span></span></footer>
     </main>
 
     <dialog id="report-dialog" class="modal">
