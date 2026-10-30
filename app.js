@@ -17,9 +17,10 @@ const state = {
   categoryFilter: 'all',
   search: '',
   currentView: 'browse',
-  signupMode: false,
   pendingVerification: null,
 };
+
+const APPEARANCE_KEY = 'findback-appearance-v1';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -47,8 +48,8 @@ function userFacingError(error) {
   if (message.toLowerCase().includes('allowed by your school') || message.toLowerCase().includes('school email')) {
     return 'Use an email address allowed by your school.';
   }
-  if (message.toLowerCase().includes('invalid login credentials')) return 'Email or password is incorrect.';
-  if (message.toLowerCase().includes('email not confirmed')) return 'Please confirm your email from the message Supabase sent you, then sign in.';
+  if (message.toLowerCase().includes('invalid login credentials')) return 'School ID or password is incorrect.';
+  if (message.toLowerCase().includes('email not confirmed')) return 'This account email must be confirmed before it can sign in.';
   return message;
 }
 
@@ -65,21 +66,6 @@ function setButtonBusy(button, busy, busyLabel) {
   }
 }
 
-function setAuthMode(signup) {
-  state.signupMode = signup;
-  $('#login-mode').classList.toggle('selected', !signup);
-  $('#signup-mode').classList.toggle('selected', signup);
-  $('#name-field').classList.toggle('hidden', !signup);
-  $('#auth-name').required = signup;
-  $('#auth-password').autocomplete = signup ? 'new-password' : 'current-password';
-  $('#auth-title').textContent = signup ? 'Create your account' : 'Welcome back';
-  $('#auth-subtitle').textContent = signup ? 'Join your school lost & found' : 'Sign in to your school account';
-  $('#auth-submit').innerHTML = signup ? 'Create account <span aria-hidden="true">→</span>' : 'Sign in <span aria-hidden="true">→</span>';
-  $('#auth-help').textContent = signup
-    ? 'Your account starts as a member. A school head can grant invigilator access.'
-    : 'New here? Choose Create account. Only signed-in school community members can view the board.';
-}
-
 function setView(view) {
   const staff = Boolean(state.profile && ['invigilator', 'head'].includes(state.profile.role));
   const head = Boolean(state.profile && state.profile.role === 'head');
@@ -90,10 +76,45 @@ function setView(view) {
   $('#claims-view').classList.toggle('hidden', view !== 'claims');
   $('#staff-view').classList.toggle('hidden', view !== 'staff');
   $('#team-view').classList.toggle('hidden', view !== 'team');
+  $('#settings-view').classList.toggle('hidden', view !== 'settings');
   $$('.view-tab').forEach((button) => button.classList.toggle('active', button.dataset.view === view));
   if (view === 'claims') loadMyClaims();
   if (view === 'staff') loadStaffClaims();
   if (view === 'team') loadTeam();
+}
+
+function loadAppearance() {
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(APPEARANCE_KEY) || '{}');
+  } catch (_error) {
+    saved = {};
+  }
+  const theme = ['dark', 'light'].includes(saved.theme) ? saved.theme : 'dark';
+  const accent = ['teal', 'orange', 'blue', 'violet'].includes(saved.accent) ? saved.accent : 'teal';
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.accent = accent;
+  $('#theme-mode').value = theme;
+  $('#theme-accent').value = accent;
+}
+
+function saveAppearance() {
+  const appearance = { theme: $('#theme-mode').value, accent: $('#theme-accent').value };
+  document.documentElement.dataset.theme = appearance.theme;
+  document.documentElement.dataset.accent = appearance.accent;
+  try {
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance));
+  } catch (_error) {
+    showToast('Appearance changed for this visit, but this browser could not save the preference.');
+  }
+}
+
+async function studentAuthEmail(studentId) {
+  const normalizedId = String(studentId || '').trim().toUpperCase();
+  const bytes = new TextEncoder().encode(normalizedId);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const hash = Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return 'student-' + hash + '@login.findback.invalid';
 }
 
 async function showSignedInApp(user) {
@@ -112,15 +133,21 @@ async function showSignedInApp(user) {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id,email,display_name,role')
+    .select('id,email,student_id,display_name,role')
     .eq('id', user.id)
     .single();
   if (error) {
     showToast('Your account is signed in, but its profile could not load: ' + userFacingError(error), true);
     return;
   }
+  if (!data.student_id && data.role === 'member') {
+    await supabase.auth.signOut();
+    await showSignedInApp(null);
+    showToast('Student accounts use a school ID. Ask the school head to create your account.', true);
+    return;
+  }
   state.profile = data;
-  $('#account-chip').textContent = (data.display_name || data.email) + ' · ' + data.role;
+  $('#account-chip').textContent = (data.display_name || 'School member') + ' · ' + (data.student_id ? 'ID ' + data.student_id : data.email) + ' · ' + data.role;
   $('#staff-tab').classList.toggle('hidden', !['invigilator', 'head'].includes(data.role));
   $('#head-tab').classList.toggle('hidden', data.role !== 'head');
   if (state.currentView === 'staff' && !['invigilator', 'head'].includes(data.role)) state.currentView = 'browse';
@@ -284,7 +311,7 @@ async function loadStaffClaims() {
       if (verification.response) detail += '<div class="claim-details"><strong>Claimant reply</strong><p>' + escapeHtml(verification.response) + '</p></div>';
     }
     return '<article class="claim-row"><div class="claim-main"><div class="claim-title-line"><h3>' + escapeHtml(item.title || 'Found item') + '</h3><span class="status-pill ' + (claim.status === 'answered' ? 'open' : 'claimed') + '">' + escapeHtml(claimStatusLabel(claim.status)) + '</span></div>' +
-      '<p>' + escapeHtml(item.code || '') + ' · ' + escapeHtml(item.location || '') + '</p><p>Claimant: ' + escapeHtml(claim.claimant_name) + ' · ' + escapeHtml(claim.claimant_email) + '</p>' + detail +
+      '<p>' + escapeHtml(item.code || '') + ' · ' + escapeHtml(item.location || '') + '</p><p>Claimant: ' + escapeHtml(claim.claimant_name) + ' · School ID/contact: ' + escapeHtml(claim.claimant_email) + '</p>' + detail +
       '</div><div class="claim-actions">' + actions + '</div></article>';
   }).join('');
 }
@@ -292,11 +319,16 @@ async function loadStaffClaims() {
 async function loadTeam() {
   if (!state.profile || state.profile.role !== 'head') return;
   const container = $('#team-list');
-  const { data, error } = await supabase.from('profiles').select('id,email,display_name,role,created_at').order('created_at', { ascending: true });
+  const { data, error } = await supabase.from('profiles').select('id,email,student_id,display_name,role,created_at').order('created_at', { ascending: true });
   if (error) {
     showToast('Could not load team accounts: ' + userFacingError(error), true);
     return;
   }
+  const studentCount = (data || []).filter((person) => Boolean(person.student_id)).length;
+  $('#student-account-count').textContent = studentCount + ' of 10 test accounts created';
+  const createForm = $('#student-account-form');
+  createForm.querySelectorAll('input,button').forEach((control) => { control.disabled = studentCount >= 10; });
+  $('#student-account-count').classList.toggle('limit-reached', studentCount >= 10);
   if (!data || !data.length) {
     container.innerHTML = '<div class="no-results">No accounts are registered yet.</div>';
     return;
@@ -309,7 +341,8 @@ async function loadTeam() {
       action = '<button class="button button-quiet button-small" data-action="remove" data-id="' + escapeHtml(person.id) + '" type="button">Remove access</button>';
     }
     const roleClass = ['head', 'invigilator'].includes(person.role) ? ' ' + person.role : '';
-    return '<article class="team-row"><div class="team-person"><strong>' + escapeHtml(person.display_name || 'School member') + '<span class="role-chip' + roleClass + '">' + escapeHtml(person.role) + '</span></strong><span>' + escapeHtml(person.email) + ' · joined ' + escapeHtml(niceDate(person.created_at)) + '</span></div><div class="claim-actions">' + action + '</div></article>';
+    const accountLabel = person.student_id ? 'School ID: ' + person.student_id : person.email;
+    return '<article class="team-row"><div class="team-person"><strong>' + escapeHtml(person.display_name || 'School member') + '<span class="role-chip' + roleClass + '">' + escapeHtml(person.role) + '</span></strong><span>' + escapeHtml(accountLabel) + ' · joined ' + escapeHtml(niceDate(person.created_at)) + '</span></div><div class="claim-actions">' + action + '</div></article>';
   }).join('');
 }
 
@@ -327,32 +360,89 @@ async function createAccountOrSignIn(event) {
   event.preventDefault();
   if (!supabase) return;
   const button = $('#auth-submit');
-  setButtonBusy(button, true, state.signupMode ? 'Creating account…' : 'Signing in…');
-  const email = $('#auth-email').value.trim();
+  setButtonBusy(button, true, 'Signing in…');
+  const identifier = $('#auth-identifier').value.trim();
   const password = $('#auth-password').value;
   try {
-    if (state.signupMode) {
-      const displayName = $('#auth-name').value.trim();
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { display_name: displayName },
-          emailRedirectTo: window.location.href.split('#')[0],
-        },
-      });
-      if (error) throw error;
-      if (data.session) {
-        showToast('Your account is ready. Welcome to Foundry!');
-      } else {
-        showToast('Account created. Check your email to confirm it, then sign in.');
-        $('#auth-form').reset();
-        setAuthMode(false);
+    const email = identifier.includes('@') ? identifier : await studentAuthEmail(identifier);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  } catch (error) {
+    showToast(userFacingError(error), true);
+  } finally {
+    setButtonBusy(button, false);
+  }
+}
+
+async function createStudentAccount(event) {
+  event.preventDefault();
+  if (!supabase || !state.profile || state.profile.role !== 'head') return;
+  const button = $('#student-account-submit');
+  setButtonBusy(button, true, 'Creating accounts…');
+  const payload = {
+    studentIds: $('#student-ids-input').value.split(/[\r\n,;]+/).map((id) => id.trim()).filter(Boolean),
+    password: $('#student-password-input').value,
+  };
+  try {
+    const { data, error } = await supabase.functions.invoke('create-student-account', { body: payload });
+    if (error) {
+      let message = error.message;
+      if (error.context && typeof error.context.json === 'function') {
+        try {
+          const response = await error.context.json();
+          message = response.error || response.message || message;
+        } catch (_parseError) {
+          // Keep the function error message if no JSON response is available.
+        }
       }
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      throw new Error(message);
     }
+    if (data && data.error) throw new Error(data.error);
+    const createdIds = data && data.createdIds ? data.createdIds : [];
+    const failedIds = data && data.failedIds ? data.failedIds : [];
+    $('#student-ids-input').value = failedIds.join('\n');
+    $('#student-password-input').value = '';
+    const failureMessage = data && data.errors ? data.errors.join(' ') : '';
+    if (!createdIds.length && failedIds.length) {
+      showToast(failureMessage || 'No accounts were created. Check the IDs and try again.', true);
+    } else {
+      const successMessage = createdIds.length + ' account' + (createdIds.length === 1 ? '' : 's') + ' created. Students should change the shared password in Settings.';
+      showToast(failedIds.length ? successMessage + ' Not created: ' + failureMessage : successMessage, failedIds.length > 0);
+    }
+    await loadTeam();
+  } catch (error) {
+    showToast(userFacingError(error), true);
+  } finally {
+    setButtonBusy(button, false);
+    if (parseInt($('#student-account-count').textContent, 10) >= 10) button.disabled = true;
+  }
+}
+
+async function changeOwnPassword(event) {
+  event.preventDefault();
+  if (!supabase || !state.user) return;
+  const currentPassword = $('#current-password').value;
+  const newPassword = $('#new-password').value;
+  const confirmPassword = $('#confirm-password').value;
+  if (newPassword !== confirmPassword) {
+    showToast('The new passwords do not match.', true);
+    return;
+  }
+  const button = $('#password-change-submit');
+  setButtonBusy(button, true, 'Updating…');
+  try {
+    const { error: checkError } = await supabase.auth.signInWithPassword({
+      email: state.user.email,
+      password: currentPassword,
+    });
+    if (checkError) throw new Error('Your current password is incorrect.');
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+      current_password: currentPassword,
+    });
+    if (error) throw error;
+    $('#password-change-form').reset();
+    showToast('Password updated.');
   } catch (error) {
     showToast(userFacingError(error), true);
   } finally {
@@ -544,9 +634,11 @@ async function changeMemberRole(personId, role) {
 }
 
 function bindEvents() {
-  $('#login-mode').addEventListener('click', () => setAuthMode(false));
-  $('#signup-mode').addEventListener('click', () => setAuthMode(true));
   $('#auth-form').addEventListener('submit', createAccountOrSignIn);
+  $('#student-account-form').addEventListener('submit', createStudentAccount);
+  $('#password-change-form').addEventListener('submit', changeOwnPassword);
+  $('#theme-mode').addEventListener('change', saveAppearance);
+  $('#theme-accent').addEventListener('change', saveAppearance);
   $('#report-form').addEventListener('submit', submitReport);
   $('#claim-form').addEventListener('submit', submitClaim);
   $('#verification-form').addEventListener('submit', submitVerification);
@@ -609,6 +701,7 @@ function bindEvents() {
 }
 
 async function start() {
+  loadAppearance();
   bindEvents();
   if (!configured) {
     $('#setup-warning').classList.remove('hidden');
