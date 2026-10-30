@@ -1,4 +1,4 @@
-# Foundry — School Lost & Found
+# FindBack — School Lost & Found
 
 A dark, mobile-friendly lost and found board branded for Delhi Public School Indirapuram. It uses Supabase for sign-in, the shared database, and private photo storage. School members sign in before they can see listings or images.
 
@@ -6,12 +6,15 @@ The school crest and Society logo load from the [DPS Society’s official school
 
 ## What the site does
 
-- Lets a student or staff member create an account, sign in, and sign out.
+- Lets students sign in with a school ID and password. The school head creates up to 10 pilot accounts; public self-sign-up is disabled.
+- Lets signed-in users change their password from **Settings**.
+- Lets each user choose a dark or light appearance and a teal, orange, blue, or violet accent.
+- Credits the build lead, Shlok Jain, in the site information and footer.
 - Lets members report found or lost items, search/filter the board, and attach a small photo.
 - Lets a member privately claim a found item.
 - Lets an invigilator write one or more private ownership questions. The claimant answers from **My claims**; invigilators can then approve or reject the claim.
 - Lets a staff member mark an approved item as returned.
-- Lets a head account grant or remove invigilator access. Heads are assigned by the project owner in Supabase and cannot be created from the public sign-up form.
+- Lets the school head grant or remove invigilator access. Head access is assigned by the project owner in Supabase.
 - Applies database row-level security (RLS) and keeps item photos in a private bucket.
 
 ## Files
@@ -21,6 +24,8 @@ The school crest and Society logo load from the [DPS Society’s official school
 - `app.js` — sign-in, reports, claims, verification questions, and team actions
 - `config.js` — the Supabase project URL and public publishable key
 - `database.sql` — database tables, role rules, triggers, and private photo policies
+- `supabase/migrations/20261030_student_id_accounts.sql` — locks new account creation to the school-head provisioning flow
+- `supabase/functions/create-student-account/` — secure account creation endpoint; its admin key stays on Supabase
 
 ## Set it up
 
@@ -29,17 +34,8 @@ The school crest and Society logo load from the [DPS Society’s official school
 1. Create a Supabase account and a new project.
 2. Choose the **Free** plan. Save the database password somewhere safe; you do not need to put it into this website.
 3. In the project dashboard, open **SQL Editor**, create a query, paste all of `database.sql`, and run it.
-4. Before sharing the site, optionally restrict registration to school-issued email domains by running this in SQL Editor (replace the sample domains):
-
-   ```sql
-   update public.school_settings
-   set allowed_email_domains = array['your-school.edu', 'students.your-school.edu']
-   where singleton = true;
-   ```
-
-   Add the part after `@` for each allowed email domain, in lowercase. If the list is empty, any email address can create a regular member account.
-5. In **Project Settings → API Keys** (or the project’s API settings page), copy the **Project URL** and **publishable key**.
-6. Open `config.js`. Replace the two `PASTE_...` values with the URL and publishable key. Do not put a secret key or `service_role` key in this file.
+4. In **Project Settings → API Keys** (or the project’s API settings page), copy the **Project URL** and **publishable key**.
+5. Open `config.js`. Replace the two `PASTE_...` values with the URL and publishable key. Do not put a secret key or `service_role` key in this file.
 
 Supabase’s current Free plan includes 500 MB database space and 1 GB file storage, and free projects can pause after a week of inactivity. Keep photos small and remove old items from the dashboard if the school’s retention policy allows it. Check the [current Supabase pricing and limits](https://supabase.com/pricing) before a school-wide rollout because plan limits can change.
 
@@ -51,12 +47,12 @@ Supabase’s current Free plan includes 500 MB database space and 1 GB file stor
 4. In Supabase, open **Authentication → URL Configuration**. While testing locally, set the Site URL to the local address Live Server shows, and add these Redirect URLs:
    - `http://127.0.0.1:5500/**`
    - `http://localhost:5500/**`
-5. Create a test account on the website. If email confirmation is enabled, open the confirmation email before signing in. Supabase’s built-in email service is best-effort and currently limited to 2 messages per hour, so test sign-up emails with a small group first. For a school rollout, use a school-approved email sender if more confirmation emails are needed. See [Supabase email sending limits](https://supabase.com/docs/guides/auth/passwords#email-sending).
+5. Sign in using the school-head account described below. Student accounts are created from **Manage accounts** after the head is signed in.
 
-### 3. Assign the first school head
+### 3. Set up the school head and student accounts
 
-1. Create the head’s account from the site’s **Create account** form and confirm the email if prompted.
-2. In Supabase **SQL Editor**, replace the sample address below with that account’s email and run:
+1. For a brand-new project, create the school head's first email/password account in Supabase **Authentication → Users → Add user** and confirm that admin email. Existing projects can keep their current head account.
+2. In Supabase **SQL Editor**, replace the sample address below with that existing head account's email and run:
 
    ```sql
    update public.profiles
@@ -64,10 +60,20 @@ Supabase’s current Free plan includes 500 MB database space and 1 GB file stor
    where lower(email) = lower('head@your-school.edu');
    ```
 
-3. Sign out and back in. The head will see **Manage team**.
-4. Ask each invigilator to create an account. The head can then grant or remove invigilator access from **Manage team**. New accounts always start as regular members.
+3. Apply `supabase/migrations/20261030_student_id_accounts.sql` in SQL Editor.
+4. Install the [Supabase CLI](https://supabase.com/docs/guides/cli). From a terminal opened in this project folder, link the Supabase project and deploy the protected account-creation function:
 
-To add another head later, the project owner can run the same SQL with that person’s email. Do not let users choose their own role.
+   ```text
+   supabase login
+   supabase link --project-ref fqogphospzjigagwzugq
+   supabase functions deploy create-student-account
+   ```
+
+   The function uses Supabase's server-side secret setting. Never copy that secret into `config.js`, `app.js`, or another browser file.
+5. In Supabase Authentication settings, turn off **Allow new users to sign up**. New accounts are created only by the school head through **Manage accounts**.
+6. Sign in with the head account. In **Manage accounts**, paste up to 10 school IDs at once, enter a shared pilot password, and create the accounts. Each profile is labeled with its school ID. Students sign in with the ID and password, then change the shared starting password in **Settings**. The head can also grant or remove invigilator access.
+
+Do not let users choose their own role. The head-created pilot accounts start as regular members.
 
 ### 4. Try the whole item-return flow
 
@@ -100,7 +106,7 @@ See GitHub’s [GitHub Pages overview](https://docs.github.com/en/pages/getting-
 - Do not put the answer to an ownership question in the public listing.
 - Do not request passwords, student ID numbers, addresses, or unrelated personal information.
 - Avoid photos of people, ID cards, or screens with private details.
-- New accounts can self-register in this starter and begin as members. If the email-domain list is empty, anyone with the public website URL can register; add the school’s approved domains in `school_settings` before sharing the site if the school uses them. Share the link only with the school community and get school approval before entering student or staff information.
+- Public self-sign-up is disabled for the pilot. The school head creates student accounts in **Manage accounts**, up to the 10-account limit. Share the site only with the school community and get school approval before entering student or staff information.
 
 ## Free plan notes
 
