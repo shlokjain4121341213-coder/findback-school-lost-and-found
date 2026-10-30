@@ -17,7 +17,9 @@ declare
   normalized_student_id text := upper(btrim(coalesce(new.raw_user_meta_data ->> 'student_id', '')));
   normalized_display_name text := nullif(btrim(new.raw_user_meta_data ->> 'display_name'), '');
 begin
-  if new.raw_app_meta_data ->> 'findback_account_type' is distinct from 'student' then
+  -- Supabase Auth may apply app_metadata after this INSERT trigger runs.
+  -- The protected Edge Function sets this marker in user_metadata and verifies head access first.
+  if new.raw_user_meta_data ->> 'findback_account_type' is distinct from 'student' then
     raise exception 'New accounts must be created by the school head.';
   end if;
 
