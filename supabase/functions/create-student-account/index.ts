@@ -95,7 +95,11 @@ Deno.serve(async (request) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { student_id: studentId, display_name: displayName },
+      user_metadata: {
+        student_id: studentId,
+        display_name: displayName,
+        findback_account_type: 'student',
+      },
       app_metadata: { findback_account_type: 'student' },
     });
     if (createError) {
