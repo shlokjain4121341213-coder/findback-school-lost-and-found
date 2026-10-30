@@ -1,4 +1,4 @@
--- Foundry School Lost & Found: run this entire file once in Supabase SQL Editor.
+-- FindBack School Lost & Found: run this entire file once in Supabase SQL Editor.
 -- It creates private member data, reports, claims, ownership checks, and image access rules.
 
 create extension if not exists pgcrypto;
@@ -6,10 +6,15 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null unique,
+  student_id text,
   display_name text not null default 'School member',
   role text not null default 'member' check (role in ('member', 'invigilator', 'head')),
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists student_id text;
+create unique index if not exists profiles_student_id_unique
+  on public.profiles (lower(student_id)) where student_id is not null;
 
 -- Leave the list empty for a small demo. For school use, add the allowed email domains below.
 create table if not exists public.school_settings (
@@ -57,7 +62,8 @@ create table if not exists public.claim_verifications (
   responded_at timestamptz
 );
 
--- New website sign-ups always start as regular members. Only a head can later grant invigilator access.
+-- Bootstrap schema: create the initial head account before applying the student-ID migration.
+-- After migration, the protected server function provisions new student accounts as members.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -76,10 +82,11 @@ begin
     raise exception 'Please use an email address allowed by your school.';
   end if;
 
-  insert into public.profiles (id, email, display_name, role)
+  insert into public.profiles (id, email, student_id, display_name, role)
   values (
     new.id,
     coalesce(new.email, ''),
+    nullif(upper(btrim(new.raw_user_meta_data ->> 'student_id')), ''),
     coalesce(nullif(btrim(new.raw_user_meta_data ->> 'display_name'), ''), 'School member'),
     'member'
   )
@@ -125,7 +132,7 @@ revoke all on function public.is_head() from public;
 grant execute on function public.is_staff() to authenticated;
 grant execute on function public.is_head() to authenticated;
 
--- Take the signed-in user's display name and email from their account, not from the browser form.
+-- Take the signed-in user's display name and student ID (or admin email) from their profile.
 create or replace function public.snapshot_claimant_contact()
 returns trigger
 language plpgsql
@@ -133,7 +140,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  select p.display_name, p.email
+  select p.display_name, coalesce(p.student_id, p.email)
   into new.claimant_name, new.claimant_email
   from public.profiles as p
   where p.id = new.claimant_id;
@@ -335,13 +342,14 @@ create policy "Members can remove their own uploaded photos"
     and (storage.foldername(name))[1] = (select auth.uid()::text)
   );
 
--- After the first account signs up, run ONE of these in SQL Editor to assign head access:
+-- After creating the initial head account in Supabase Authentication > Users, run this in SQL Editor:
 -- update public.profiles set role = 'head' where lower(email) = lower('head@your-school.edu');
--- Heads can then grant/remove invigilator access from the website's Manage team tab.
--- Never set a website sign-up to head automatically.
+-- Heads can then grant/remove invigilator access from the website's Manage accounts tab.
+-- Never let a website sign-up choose its own role.
 
--- Optional school email restriction (recommended before sharing the site):
+-- Optional email restriction for the initial head-account bootstrap only.
+-- Student-ID accounts created after applying the student login migration do not use this list.
 -- update public.school_settings
 -- set allowed_email_domains = array['your-school.edu', 'students.your-school.edu']
 -- where singleton = true;
--- If the list is empty, any email address can create a regular member account.
+-- Apply the student-ID migration after bootstrapping the head; it rejects public email sign-ups.
