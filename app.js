@@ -236,7 +236,7 @@ function renderItems() {
   }).join('');
 }
 
-const CLAIM_SELECT = 'id,item_id,claimant_id,message,status,created_at,item:items!claims_item_id_fkey(code,title,location,category),verification:claim_verifications!claim_verifications_claim_id_fkey(id,question,response,responded_at)';
+const CLAIM_SELECT = 'id,item_id,claimant_id,message,status,handoff_code,created_at,item:items!claims_item_id_fkey(code,title,location,category,status),verification:claim_verifications!claim_verifications_claim_id_fkey(id,question,response,responded_at)';
 
 function related(value) {
   if (Array.isArray(value)) return value[0] || null;
@@ -277,27 +277,91 @@ function renderMyClaims() {
     const editAction = claim.claimant_id === state.user.id && claim.status === 'pending'
       ? '<button class="button button-quiet button-small edit-claim-action" data-action="edit-claim" data-id="' + escapeHtml(claim.id) + '" type="button">Edit message</button>'
       : '';
+    const printAction = claim.claimant_id === state.user.id && claim.status === 'approved' && claim.handoff_code && item.status === 'claimed'
+      ? '<button class="button button-secondary button-small edit-claim-action" data-action="print-claim-slip" data-id="' + escapeHtml(claim.id) + '" type="button">Print pickup slip</button>'
+      : '';
     return '<article class="claim-row"><div class="claim-main"><div class="claim-title-line"><h3>' + escapeHtml(item.title || 'Found item') + '</h3><span class="status-pill ' + (claim.status === 'approved' ? 'returned' : claim.status === 'rejected' ? 'closed' : 'claimed') + '">' + escapeHtml(claimStatusLabel(claim.status)) + '</span></div>' +
       '<p>' + escapeHtml(item.code || '') + ' · ' + escapeHtml(item.location || '') + ' · Claimed ' + escapeHtml(niceDate(claim.created_at)) + '</p>' + detail +
-      editAction + '</div><span class="status-text">' + escapeHtml(claimStatusLabel(claim.status)) + '</span></article>';
+      editAction + printAction + '</div><span class="status-text">' + escapeHtml(claimStatusLabel(claim.status)) + '</span></article>';
   }).join('');
+}
+
+function printClaimSlip(claimId) {
+  const claim = state.myClaims.find((entry) => entry.id === claimId);
+  const item = claim ? related(claim.item) || {} : {};
+  if (!claim || claim.claimant_id !== state.user.id || claim.status !== 'approved' || !claim.handoff_code || item.status !== 'claimed') {
+    showToast('A pickup slip is available only for your approved claim before the item is returned.', true);
+    return;
+  }
+
+  const printWindow = window.open('', '_blank', 'width=760,height=820');
+  if (!printWindow) {
+    showToast('Allow pop-ups to open the printable pickup slip.', true);
+    return;
+  }
+  printWindow.opener = null;
+  const printedDate = new Intl.DateTimeFormat('en-IN', { dateStyle: 'long' }).format(new Date());
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FindBack pickup slip</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px; background: #edf2f6; color: #17283d; font: 16px/1.55 Arial, sans-serif; }
+    .slip { max-width: 620px; margin: 0 auto; padding: 36px; border: 2px solid #18364a; border-radius: 18px; background: white; }
+    .eyebrow { color: #148c8b; font-size: 12px; font-weight: 700; letter-spacing: .14em; }
+    h1 { margin: 10px 0 4px; font-size: 30px; }
+    .school { margin: 0 0 28px; color: #53677b; }
+    .item { padding: 18px; border-radius: 12px; background: #f1f6f8; }
+    .item strong { display: block; margin-bottom: 4px; font-size: 20px; }
+    .code-label { margin: 25px 0 8px; color: #53677b; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .code { padding: 16px 12px; border: 1px dashed #148c8b; border-radius: 10px; color: #087b7a; font: 700 25px/1.3 Consolas, monospace; letter-spacing: .1em; text-align: center; overflow-wrap: anywhere; }
+    .instructions { margin: 22px 0 0; }
+    .privacy { margin: 12px 0 0; color: #53677b; font-size: 13px; }
+    .date { margin: 24px 0 0; color: #53677b; font-size: 12px; }
+    .print-button { display: block; margin: 22px auto 0; padding: 11px 18px; border: 0; border-radius: 8px; background: #087b7a; color: white; font: 700 15px Arial, sans-serif; cursor: pointer; }
+    @media print { body { padding: 0; background: white; } .slip { max-width: none; border: 1px solid #18364a; } .print-button { display: none; } }
+    @media (max-width: 520px) { body { padding: 12px; } .slip { padding: 24px; } .code { font-size: 20px; } }
+  </style>
+</head>
+<body>
+  <main class="slip">
+    <span class="eyebrow">DELHI PUBLIC SCHOOL · INDIRAPURAM</span>
+    <h1>FindBack pickup slip</h1>
+    <p class="school">Show this slip to an invigilator at school.</p>
+    <div class="item"><strong>${escapeHtml(item.title || 'Found item')}</strong><span>Item reference: ${escapeHtml(item.code || '')}</span><br><span>Found at: ${escapeHtml(item.location || '')}</span></div>
+    <p class="code-label">Private pickup code</p>
+    <div class="code">${escapeHtml(claim.handoff_code)}</div>
+    <p class="instructions">An invigilator can match this code with the approved claim in FindBack before handing over the item.</p>
+    <p class="privacy">Keep this code private. It is for the school handover and does not replace the school's normal handover process.</p>
+    <p class="date">Printed ${escapeHtml(printedDate)}</p>
+    <button class="print-button" type="button" onclick="window.print()">Print slip</button>
+  </main>
+</body>
+</html>`);
+  printWindow.document.close();
+  printWindow.focus();
 }
 
 async function loadStaffClaims() {
   if (!state.profile || !['invigilator', 'head'].includes(state.profile.role)) return;
   const container = $('#staff-claims-list');
   const { data, error } = await supabase.from('claims').select(
-    'id,item_id,claimant_id,claimant_name,claimant_email,message,status,created_at,item:items!claims_item_id_fkey(code,title,location,category),verification:claim_verifications!claim_verifications_claim_id_fkey(id,question,response,responded_at)'
-  ).in('status', ['pending', 'awaiting_answer', 'answered']).order('created_at', { ascending: true });
+    'id,item_id,claimant_id,claimant_name,claimant_email,message,status,handoff_code,created_at,item:items!claims_item_id_fkey(code,title,location,category,status),verification:claim_verifications!claim_verifications_claim_id_fkey(id,question,response,responded_at)'
+  ).in('status', ['pending', 'awaiting_answer', 'answered', 'approved']).order('created_at', { ascending: true });
   if (error) {
     showToast('Could not load claim review: ' + userFacingError(error), true);
     return;
   }
-  if (!data || !data.length) {
+  const visibleClaims = (data || []).filter((claim) => claim.status !== 'approved' || related(claim.item)?.status === 'claimed');
+  if (!visibleClaims.length) {
     container.innerHTML = '<div class="no-results">No claims need review right now.</div>';
     return;
   }
-  container.innerHTML = data.map((claim) => {
+  container.innerHTML = visibleClaims.map((claim) => {
     const item = related(claim.item) || {};
     const verification = related(claim.verification);
     let actions = '';
@@ -305,6 +369,8 @@ async function loadStaffClaims() {
       actions = '<button class="button button-secondary button-small" data-action="ask" data-id="' + escapeHtml(claim.id) + '" type="button">Ask ownership questions</button><button class="button button-primary button-small" data-action="approve" data-id="' + escapeHtml(claim.id) + '" type="button">Approve</button><button class="button button-quiet button-small" data-action="reject" data-id="' + escapeHtml(claim.id) + '" type="button">Reject</button>';
     } else if (claim.status === 'answered') {
       actions = '<button class="button button-primary button-small" data-action="approve" data-id="' + escapeHtml(claim.id) + '" type="button">Approve</button><button class="button button-quiet button-small" data-action="reject" data-id="' + escapeHtml(claim.id) + '" type="button">Reject</button>';
+    } else if (claim.status === 'approved') {
+      actions = '<span class="status-text">Approved · check pickup slip</span>';
     } else {
       actions = '<button class="button button-quiet button-small" data-action="reject" data-id="' + escapeHtml(claim.id) + '" type="button">Reject claim</button>';
     }
@@ -312,6 +378,9 @@ async function loadStaffClaims() {
     if (verification) {
       detail += '<div class="claim-details"><strong>Ownership questions sent</strong><p>' + escapeHtml(verification.question) + '</p></div>';
       if (verification.response) detail += '<div class="claim-details"><strong>Claimant reply</strong><p>' + escapeHtml(verification.response) + '</p></div>';
+    }
+    if (claim.status === 'approved' && claim.handoff_code) {
+      detail += '<div class="claim-details"><strong>Pickup code · match this with the printed slip</strong><p class="pickup-code">' + escapeHtml(claim.handoff_code) + '</p></div>';
     }
     return '<article class="claim-row"><div class="claim-main"><div class="claim-title-line"><h3>' + escapeHtml(item.title || 'Found item') + '</h3><span class="status-pill ' + (claim.status === 'answered' ? 'open' : 'claimed') + '">' + escapeHtml(claimStatusLabel(claim.status)) + '</span></div>' +
       '<p>' + escapeHtml(item.code || '') + ' · ' + escapeHtml(item.location || '') + '</p><p>Claimant: ' + escapeHtml(claim.claimant_name) + ' · School ID/contact: ' + escapeHtml(claim.claimant_email) + '</p>' + detail +
@@ -639,7 +708,7 @@ async function markItemReturned(itemId) {
     const { error } = await supabase.from('items').update({ status: 'returned' }).eq('id', itemId);
     if (error) throw error;
     showToast('Item marked as returned.');
-    await loadItems();
+    await Promise.all([loadItems(), loadMyClaims(), loadStaffClaims()]);
   } catch (error) {
     showToast(userFacingError(error), true);
   }
@@ -720,6 +789,8 @@ function bindEvents() {
   $('#my-claims-list').addEventListener('click', (event) => {
     const button = event.target.closest('[data-action="edit-claim"]');
     if (button) startEditClaim(button.dataset.id);
+    const printButton = event.target.closest('[data-action="print-claim-slip"]');
+    if (printButton) printClaimSlip(printButton.dataset.id);
   });
   $('#staff-claims-list').addEventListener('click', (event) => {
     const button = event.target.closest('[data-action]');
