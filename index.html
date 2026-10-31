@@ -191,6 +191,16 @@
       </form>
     </dialog>
 
+    <dialog id="edit-claim-dialog" class="modal">
+      <form id="edit-claim-form" class="modal-card">
+        <div class="modal-top"><div><span class="eyebrow">UPDATE YOUR CLAIM</span><h2>Edit claim message</h2></div><button class="icon-button" type="button" data-close="edit-claim-dialog" aria-label="Close">×</button></div>
+        <p class="modal-intro">You can edit this message until an invigilator or head starts reviewing your claim.</p>
+        <label for="edit-claim-message">Claim message<textarea id="edit-claim-message" required maxlength="500" rows="5"></textarea></label>
+        <input id="edit-claim-id" type="hidden">
+        <div class="modal-actions"><button class="button button-quiet" type="button" data-close="edit-claim-dialog">Cancel</button><button class="button button-primary" type="submit">Save message</button></div>
+      </form>
+    </dialog>
+
     <dialog id="verification-dialog" class="modal">
       <form id="verification-form" class="modal-card">
         <div class="modal-top"><div><span class="eyebrow">PRIVATE OWNERSHIP CHECK</span><h2>Ask the claimant</h2></div><button class="icon-button" type="button" data-close="verification-dialog" aria-label="Close">×</button></div>
