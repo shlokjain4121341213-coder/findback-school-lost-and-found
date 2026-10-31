@@ -239,6 +239,7 @@ select option { color: var(--text); background: #17263c; }
 .settings-card h3 { margin: 0; font-size: 18px; }
 .settings-card > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .settings-card .form-hint { margin: -4px 0 0; }
+.edit-claim-action { margin-top: 10px; }
 .build-credit { margin-top: 8px !important; padding-top: 14px; border-top: 1px solid var(--line); }
 .build-credit strong { color: var(--text); }
 .build-lead-footer { color: var(--muted); }
