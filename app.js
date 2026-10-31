@@ -236,7 +236,7 @@ function renderItems() {
   }).join('');
 }
 
-const CLAIM_SELECT = 'id,item_id,message,status,created_at,item:items!claims_item_id_fkey(code,title,location,category),verification:claim_verifications!claim_verifications_claim_id_fkey(id,question,response,responded_at)';
+const CLAIM_SELECT = 'id,item_id,claimant_id,message,status,created_at,item:items!claims_item_id_fkey(code,title,location,category),verification:claim_verifications!claim_verifications_claim_id_fkey(id,question,response,responded_at)';
 
 function related(value) {
   if (Array.isArray(value)) return value[0] || null;
@@ -245,7 +245,7 @@ function related(value) {
 
 async function loadMyClaims() {
   if (!state.user) return;
-  const { data, error } = await supabase.from('claims').select(CLAIM_SELECT).order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('claims').select(CLAIM_SELECT).eq('claimant_id', state.user.id).order('created_at', { ascending: false });
   if (error) {
     showToast('Could not load your claims: ' + userFacingError(error), true);
     return;
@@ -274,7 +274,7 @@ function renderMyClaims() {
         detail += '<div class="claim-details"><strong>Your answer</strong><p>' + escapeHtml(verification.response) + '</p></div>';
       }
     }
-    const editAction = claim.status === 'pending'
+    const editAction = claim.claimant_id === state.user.id && claim.status === 'pending'
       ? '<button class="button button-quiet button-small edit-claim-action" data-action="edit-claim" data-id="' + escapeHtml(claim.id) + '" type="button">Edit message</button>'
       : '';
     return '<article class="claim-row"><div class="claim-main"><div class="claim-title-line"><h3>' + escapeHtml(item.title || 'Found item') + '</h3><span class="status-pill ' + (claim.status === 'approved' ? 'returned' : claim.status === 'rejected' ? 'closed' : 'claimed') + '">' + escapeHtml(claimStatusLabel(claim.status)) + '</span></div>' +
@@ -528,7 +528,7 @@ async function submitClaim(event) {
 
 function startEditClaim(claimId) {
   const claim = state.myClaims.find((entry) => entry.id === claimId);
-  if (!claim || claim.status !== 'pending') {
+  if (!claim || claim.claimant_id !== state.user.id || claim.status !== 'pending') {
     showToast('This claim can no longer be edited because staff has started reviewing it.', true);
     return;
   }
