@@ -274,9 +274,12 @@ function renderMyClaims() {
         detail += '<div class="claim-details"><strong>Your answer</strong><p>' + escapeHtml(verification.response) + '</p></div>';
       }
     }
+    const editAction = claim.status === 'pending'
+      ? '<button class="button button-quiet button-small edit-claim-action" data-action="edit-claim" data-id="' + escapeHtml(claim.id) + '" type="button">Edit message</button>'
+      : '';
     return '<article class="claim-row"><div class="claim-main"><div class="claim-title-line"><h3>' + escapeHtml(item.title || 'Found item') + '</h3><span class="status-pill ' + (claim.status === 'approved' ? 'returned' : claim.status === 'rejected' ? 'closed' : 'claimed') + '">' + escapeHtml(claimStatusLabel(claim.status)) + '</span></div>' +
       '<p>' + escapeHtml(item.code || '') + ' · ' + escapeHtml(item.location || '') + ' · Claimed ' + escapeHtml(niceDate(claim.created_at)) + '</p>' + detail +
-      '</div><span class="status-text">' + escapeHtml(claimStatusLabel(claim.status)) + '</span></article>';
+      editAction + '</div><span class="status-text">' + escapeHtml(claimStatusLabel(claim.status)) + '</span></article>';
   }).join('');
 }
 
@@ -523,6 +526,40 @@ async function submitClaim(event) {
   }
 }
 
+function startEditClaim(claimId) {
+  const claim = state.myClaims.find((entry) => entry.id === claimId);
+  if (!claim || claim.status !== 'pending') {
+    showToast('This claim can no longer be edited because staff has started reviewing it.', true);
+    return;
+  }
+  $('#edit-claim-id').value = claim.id;
+  $('#edit-claim-message').value = claim.message;
+  openDialog('edit-claim-dialog');
+}
+
+async function submitEditClaim(event) {
+  event.preventDefault();
+  const button = event.submitter;
+  const claimId = $('#edit-claim-id').value;
+  const message = $('#edit-claim-message').value.trim();
+  setButtonBusy(button, true, 'Saving…');
+  try {
+    const { error } = await supabase.rpc('edit_pending_claim_message', {
+      p_claim_id: claimId,
+      p_message: message,
+    });
+    if (error) throw error;
+    closeDialog('edit-claim-dialog');
+    showToast('Your claim message was updated.');
+    await loadMyClaims();
+  } catch (error) {
+    showToast(userFacingError(error), true);
+    await loadMyClaims();
+  } finally {
+    setButtonBusy(button, false);
+  }
+}
+
 function startVerification(claimId) {
   const claim = document.querySelector('[data-action="ask"][data-id="' + CSS.escape(claimId) + '"]');
   const row = claim ? claim.closest('.claim-row') : null;
@@ -637,6 +674,7 @@ function bindEvents() {
   $('#auth-form').addEventListener('submit', createAccountOrSignIn);
   $('#student-account-form').addEventListener('submit', createStudentAccount);
   $('#password-change-form').addEventListener('submit', changeOwnPassword);
+  $('#edit-claim-form').addEventListener('submit', submitEditClaim);
   $('#theme-mode').addEventListener('change', saveAppearance);
   $('#theme-accent').addEventListener('change', saveAppearance);
   $('#report-form').addEventListener('submit', submitReport);
@@ -678,6 +716,10 @@ function bindEvents() {
   });
   $('#my-claims-list').addEventListener('submit', (event) => {
     if (event.target.matches('.answer-form')) submitVerificationAnswer(event);
+  });
+  $('#my-claims-list').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-action="edit-claim"]');
+    if (button) startEditClaim(button.dataset.id);
   });
   $('#staff-claims-list').addEventListener('click', (event) => {
     const button = event.target.closest('[data-action]');
