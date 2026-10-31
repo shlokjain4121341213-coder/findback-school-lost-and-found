@@ -20,7 +20,7 @@ begin
     and status = 'pending';
 
   if not found then
-    raise exception 'This claim is no longer open for editing.';
+    raise exception 'Only the student who submitted this claim can edit it while it is waiting for staff.';
   end if;
 end;
 $$;
